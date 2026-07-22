@@ -1,8 +1,8 @@
 # FIXED
 
 BSP/src/PID.o: ../BSP/src/PID.c \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/PID.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/Board/board.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/PID.h \
+ D:/CCS/workspace_v12/MYCode_v7/Board/board.h \
  ti_msp_dl_config.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/msp/msp.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/DeviceFamily.h \
@@ -86,10 +86,10 @@ BSP/src/PID.o: ../BSP/src/PID.c \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_wwdt.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_interrupt.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_systick.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/encoder.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/line.h
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/PID.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/Board/board.h:
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/encoder.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/line.h
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/PID.h:
+D:/CCS/workspace_v12/MYCode_v7/Board/board.h:
 ti_msp_dl_config.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/msp/msp.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/DeviceFamily.h:
@@ -173,5 +173,5 @@ D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_vref.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_wwdt.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_interrupt.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_systick.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/encoder.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/line.h:
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/encoder.h:
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/line.h:

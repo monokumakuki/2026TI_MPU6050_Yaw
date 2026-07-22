@@ -1,10 +1,10 @@
-# MYCode_v6_MPUMode 开发说明
+# MYCode_v7 开发说明
 
 本文供后续接手本工程的开发者或 AI 使用。修改前必须先检查本文件、当前源码、`empty.syscfg` 和 SysConfig 生成宏，不得根据其他工程猜测引脚或外设实例。
 
 ## 1. 工程信息
 
-- 工程路径：`D:/CCS/workspace_v12/MYCode_v6_MPUMode`
+- 工程路径：`D:/CCS/workspace_v12/MYCode_v7`
 - MCU：TI MSPM0G3507
 - IDE：Code Composer Studio 12.8.1
 - SDK：`D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04`
@@ -33,7 +33,7 @@
 
 ## 3. 菜单与 Flash 参数
 
-巡线菜单共 9 项：
+巡线菜单共 15 项：
 
 1. `MPU`：MPU 辅助开关
 2. `Laps`
@@ -44,8 +44,14 @@
 7. `Speed`
 8. `PivTime`
 9. `TurnSpd`：直角弯 pivot 外侧轮速度，范围 80～250，步进 5，默认 200
+10. `YawP10`：航向角P增益×10，默认15即1.5
+11. `YawD100`：角速度阻尼×100，默认40即0.40
+12. `MpuMix`：直道MPU辅助比例，默认15%
+13. `YawMax`：航向辅助输出限幅，默认60
+14. `LockCnt`：灰度稳定居中多少次后锁航，默认60
+15. `CurveD100`：普通弯道角速度阻尼×100，范围0～50、步进5、默认10即0.10
 
-`TurnSpd` 复用 Flash 参数结构中的 `pivot_speed` 字段，掉电保存。旧版曾把该字段固定写成 0，读取到 0 或非法值时必须回退到 200。不要改变现有 Flash 地址、Magic 或结构布局，否则会破坏旧参数兼容。
+`TurnSpd` 复用 Flash 参数结构中的 `pivot_speed` 字段，掉电保存。`CurveD100` 复用原结构最后一个 `reserved` 字节，结构仍为24字节；旧 Flash 中该字节通常为 `0xFF`，读取时自动回退到默认10。不要改变现有 Flash 地址、Magic 或结构布局，否则会破坏旧参数兼容。
 
 ## 4. MPU6050 与 yaw 规则
 
@@ -60,6 +66,8 @@
 - `MPU6050_QuaternionReset()` 必须同时清零相对 yaw、上一帧角速度、四元数积分状态和时间基准。
 - 上电 OLED 只保留一页 `MPU INIT / KEEP CAR STILL`；失败后纯灰度巡线仍可使用。
 - 首页 K3 进入 yaw 测试；K3 短按归零，K4 短按返回。PB2 输出一列 ASCII 数值。
+- 巡线菜单第一页显示 MPU 开关时，K2 切换 MPU ON/OFF；K3 短按执行200点陀螺仪静止重校准。OLED 显示 `GYRO CAL / KEEP CAR STILL`，校准期间车体必须完全静止。
+- v7 与 `MYCode_v6_MPUMode` 的 `BSP/src/mpu6050.c`、`BSP/inc/mpu6050.h` SHA256 分别完全一致；两版 MPU 驱动和姿态解算文件相同。
 
 ## 5. MPU 辅助巡线逻辑
 
@@ -68,12 +76,13 @@
 - MPU OFF：保持原八路灰度 PD、丢线搜索和 pivot 状态机。
 - MPU ON：
   - 每轮先更新 MPU，复用最近一次的 yaw 与 gyro_z。
-  - 灰度居中连续达到 `YAW_LOCK_MS` 后才锁定当前 yaw。
-  - 直道航向控制使用角度 P + 实测角速度阻尼，不使用按循环次数累积的 I/D。
-  - 直道融合为灰度 PD 70% + yaw 辅助 30%。
+  - 灰度居中连续达到菜单 `LockCnt` 后才锁定当前 yaw。
+  - 直道航向控制使用角度 P + 实测角速度阻尼，并对角速度和输出做低通。
+  - 灰度 PD 原样保留，仅叠加 `MpuMix` 比例的限幅 yaw 辅助。
   - 一旦灰度出现明确转向误差，立即释放直道 yaw 锁。
-  - 普通弯道使用 gyro_z 对灰度 PD 做小幅动态阻尼。
+  - 普通弯道使用独立的 `CurveD100` 对 gyro_z 做小幅动态阻尼；`YawD100` 只负责直道航向环阻尼。
   - pivot 期间禁用 yaw 锁定，由最外侧灰度和中心重捕获决定退出。
+  - pivot 退出后的 `block_opposite=50` 保护期内完全禁用 MPU 弯道阻尼，只使用灰度 PD，避免残余角速度导致首弯反拉。
   - 丢线时优先保持已锁定航向，并叠加小幅搜索；此前未锁定时才以丢线瞬间航向为目标。
 
 符号约定：
@@ -108,16 +117,28 @@
 
 ```powershell
 & 'D:/ti/CCS_SDK/sysconfig_1.26.2/sysconfig_cli.bat' `
-  --script 'D:/CCS/workspace_v12/MYCode_v6_MPUMode/empty.syscfg' `
-  -o 'D:/CCS/workspace_v12/MYCode_v6_MPUMode/Debug' `
+  --script 'D:/CCS/workspace_v12/MYCode_v7/empty.syscfg' `
+  -o 'D:/CCS/workspace_v12/MYCode_v7/Debug' `
   -s 'D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/.metadata/product.json' `
   --compiler ticlang
 
-Set-Location 'D:/CCS/workspace_v12/MYCode_v6_MPUMode/Debug'
+Set-Location 'D:/CCS/workspace_v12/MYCode_v7/Debug'
 & 'D:/ti/ccs1281/ccs/utils/bin/gmake.exe' -j4 all
 ```
 
-只有 SysConfig、编译和链接均成功，并生成 `Debug/MYCode_v6_MPUMode.out`，才能说明构建通过。构建通过不等于实车验证通过。
+只有 SysConfig、编译和链接均成功，并生成工程对应的 `.out`，才能说明构建通过。构建通过不等于实车验证通过。
+
+## MPU快速摇摆调参顺序
+
+默认防摇参数：`YawP10=15`、`YawD100=40`、`MpuMix=15`、`YawMax=60`、`LockCnt=60`、`CurveD100=10`。
+
+1. 仍然高频左右摆：先把 `MpuMix` 降到10，再把 `YawP10` 降到10。
+2. 回正过冲：把 `YawD100` 增加到50～60。
+3. 修正太慢：先把 `MpuMix` 加到20，再小幅提高 `YawP10`。
+4. 刚出直角弯就摇：把 `LockCnt` 提高到80～100。
+5. 单次修正太猛：把 `YawMax` 降到40～50。
+6. 第一个弯偶发大幅转回：优先把 `CurveD100` 从10降到5，仍有反拉就设为0；不要先改 `YawD100`，因为它现在只影响直道。
+7. 普通弯出弯甩尾明显但没有反拉：把 `CurveD100` 从10逐步提高到15～20。
 
 ## 9. 当前待实车验证项
 
@@ -126,4 +147,3 @@ Set-Location 'D:/CCS/workspace_v12/MYCode_v6_MPUMode/Debug'
 - 普通弯道 gyro 阻尼是否过强或过弱。
 - `TurnSpd` 在 80～250 范围内对不同直角弯的效果。
 - 修改 `TurnSpd`、断电重启后参数是否正确恢复。
-

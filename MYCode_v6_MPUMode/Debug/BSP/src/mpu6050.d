@@ -1,7 +1,7 @@
 # FIXED
 
 BSP/src/mpu6050.o: ../BSP/src/mpu6050.c \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/mpu6050.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/mpu6050.h \
  ti_msp_dl_config.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/msp/msp.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/DeviceFamily.h \
@@ -85,10 +85,10 @@ BSP/src/mpu6050.o: ../BSP/src/mpu6050.c \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_wwdt.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_interrupt.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_systick.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/Board/board.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/PID.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/line.h
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/mpu6050.h:
+ D:/CCS/workspace_v12/MYCode_v7/Board/board.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/PID.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/line.h
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/mpu6050.h:
 ti_msp_dl_config.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/msp/msp.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/DeviceFamily.h:
@@ -172,6 +172,6 @@ D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_vref.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_wwdt.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_interrupt.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_systick.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/Board/board.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/PID.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/line.h:
+D:/CCS/workspace_v12/MYCode_v7/Board/board.h:
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/PID.h:
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/line.h:

@@ -33,7 +33,7 @@
 /* Magic 魔数：0x4D534B50 = ASCII "MSKP"，用于检验数据有效性 */
 #define PARAM_MAGIC          0x4D534B50UL
 
-/* 参数结构体: 8 个字段 + 保留, 共 24 字节 = 6 个 uint32_t */
+/* 参数结构体保持 24 字节，复用原 reserved 保存 MPU 辅助调参值。 */
 typedef struct {
     uint32_t magic;          /* [31:0]   魔数校验 */
     int16_t  kp;             /* [47:32]  比例增益 */
@@ -44,7 +44,12 @@ typedef struct {
     int16_t  pivot_time;     /* [127:112] pivot最小保持时间 */
     uint8_t  mpu_mode;       /* [135:128] MPU显示模式 0=关 1=开 */
     uint8_t  pivot_speed;    /* [143:136] 直角弯外侧轮速度 80~250 */
-    uint8_t  reserved[6];    /* [191:144] 保留 */
+    uint8_t  yaw_kp10;       /* 航向P增益×10，0~50 */
+    uint8_t  yaw_rate100;    /* 角速度阻尼×100，0~100 */
+    uint8_t  mpu_mix;        /* 直道MPU辅助比例，0~50% */
+    uint8_t  yaw_limit;      /* 航向辅助最大速度差，10~200 */
+    uint8_t  yaw_lock_count; /* 居中锁航确认次数，10~200 */
+    uint8_t  curve_rate100;  /* 普通弯道角速度阻尼×100，范围0~50 */
 } ParamData_t;
 
 /* ==================== 参数读取 ==================== */
@@ -58,7 +63,10 @@ typedef struct {
  ******************************************************************/
 bool Param_Load(int16_t *kp, int16_t *kd, int16_t *lost_gain,
                 int16_t *base_speed, int16_t *laps, int16_t *pivot_time,
-                uint8_t *mpu_mode, int16_t *pivot_speed)
+                uint8_t *mpu_mode, int16_t *pivot_speed,
+                int16_t *yaw_kp10, int16_t *yaw_rate100,
+                int16_t *mpu_mix, int16_t *yaw_limit,
+                int16_t *yaw_lock_count, int16_t *curve_rate100)
 {
     const ParamData_t *p = (const ParamData_t *)PARAM_FLASH_ADDR;
 
@@ -81,6 +89,21 @@ bool Param_Load(int16_t *kp, int16_t *kd, int16_t *lost_gain,
         int16_t ps = (int16_t)p->pivot_speed;
         *pivot_speed = (ps >= 80 && ps <= 250) ? ps : 200;
     }
+    if (yaw_kp10 != NULL)
+        *yaw_kp10 = (p->yaw_kp10 <= 50U) ? (int16_t)p->yaw_kp10 : 15;
+    if (yaw_rate100 != NULL)
+        *yaw_rate100 = (p->yaw_rate100 <= 100U) ? (int16_t)p->yaw_rate100 : 40;
+    if (mpu_mix != NULL)
+        *mpu_mix = (p->mpu_mix <= 50U) ? (int16_t)p->mpu_mix : 15;
+    if (yaw_limit != NULL)
+        *yaw_limit = (p->yaw_limit >= 10U && p->yaw_limit <= 200U) ?
+                     (int16_t)p->yaw_limit : 60;
+    if (yaw_lock_count != NULL)
+        *yaw_lock_count = (p->yaw_lock_count >= 10U && p->yaw_lock_count <= 200U) ?
+                          (int16_t)p->yaw_lock_count : 60;
+    if (curve_rate100 != NULL)
+        *curve_rate100 = (p->curve_rate100 <= 50U) ?
+                         (int16_t)p->curve_rate100 : 10;
 
     /* 范围校验 */
     if (*kp         < 1   || *kp         > 100) return false;
@@ -104,7 +127,10 @@ bool Param_Load(int16_t *kp, int16_t *kd, int16_t *lost_gain,
  ******************************************************************/
 bool Param_Save(int16_t kp, int16_t kd, int16_t lost_gain,
                 int16_t base_speed, int16_t laps, int16_t pivot_time,
-                uint8_t mpu_mode, int16_t pivot_speed)
+                uint8_t mpu_mode, int16_t pivot_speed,
+                int16_t yaw_kp10, int16_t yaw_rate100,
+                int16_t mpu_mix, int16_t yaw_limit,
+                int16_t yaw_lock_count, int16_t curve_rate100)
 {
     ParamData_t data;
     data.magic       = PARAM_MAGIC;
@@ -116,7 +142,12 @@ bool Param_Save(int16_t kp, int16_t kd, int16_t lost_gain,
     data.pivot_time  = pivot_time;
     data.mpu_mode    = mpu_mode;
     data.pivot_speed = (uint8_t)((pivot_speed >= 80 && pivot_speed <= 250) ? pivot_speed : 200);
-    memset(data.reserved, 0xFF, sizeof(data.reserved));
+    data.yaw_kp10 = (uint8_t)((yaw_kp10 >= 0 && yaw_kp10 <= 50) ? yaw_kp10 : 15);
+    data.yaw_rate100 = (uint8_t)((yaw_rate100 >= 0 && yaw_rate100 <= 100) ? yaw_rate100 : 40);
+    data.mpu_mix = (uint8_t)((mpu_mix >= 0 && mpu_mix <= 50) ? mpu_mix : 15);
+    data.yaw_limit = (uint8_t)((yaw_limit >= 10 && yaw_limit <= 200) ? yaw_limit : 60);
+    data.yaw_lock_count = (uint8_t)((yaw_lock_count >= 10 && yaw_lock_count <= 200) ? yaw_lock_count : 60);
+    data.curve_rate100 = (uint8_t)((curve_rate100 >= 0 && curve_rate100 <= 50) ? curve_rate100 : 10);
 
     DL_FLASHCTL_COMMAND_STATUS status;
 
@@ -181,7 +212,13 @@ bool Param_Save(int16_t kp, int16_t kd, int16_t lost_gain,
             verify->lost_gain != lost_gain || verify->base_speed != base_speed ||
             verify->laps != laps || verify->pivot_time != pivot_time ||
             verify->mpu_mode != mpu_mode ||
-            verify->pivot_speed != data.pivot_speed)
+            verify->pivot_speed != data.pivot_speed ||
+            verify->yaw_kp10 != data.yaw_kp10 ||
+            verify->yaw_rate100 != data.yaw_rate100 ||
+            verify->mpu_mix != data.mpu_mix ||
+            verify->yaw_limit != data.yaw_limit ||
+            verify->yaw_lock_count != data.yaw_lock_count ||
+            verify->curve_rate100 != data.curve_rate100)
         {
             return false;
         }

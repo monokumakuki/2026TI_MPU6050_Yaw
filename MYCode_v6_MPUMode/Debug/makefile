@@ -139,21 +139,21 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXE_OUTPUTS += \
-MYCode_v6_MPUMode.out 
+MYCode_v7.out 
 
 EXE_OUTPUTS__QUOTED += \
-"MYCode_v6_MPUMode.out" 
+"MYCode_v7.out" 
 
 
 # All Target
 all: $(OBJS) $(GEN_CMDS)
-	@$(MAKE) --no-print-directory -Onone "MYCode_v6_MPUMode.out"
+	@$(MAKE) --no-print-directory -Onone "MYCode_v7.out"
 
 # Tool invocations
-MYCode_v6_MPUMode.out: $(OBJS) $(GEN_CMDS)
+MYCode_v7.out: $(OBJS) $(GEN_CMDS)
 	@echo 'Building target: "$@"'
 	@echo 'Invoking: Arm Linker'
-	"D:/ti/ccs1281/ccs/tools/compiler/ti-cgt-armllvm_4.0.0.LTS/bin/tiarmclang.exe" @"device.opt"  -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -gdwarf-3 -Wl,-m"MYCode_v6_MPUMode.map" -Wl,-i"D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source" -Wl,-i"D:/CCS/workspace_v12/MYCode_v6_MPUMode" -Wl,-i"D:/CCS/workspace_v12/MYCode_v6_MPUMode/Debug/syscfg" -Wl,-i"D:/ti/ccs1281/ccs/tools/compiler/ti-cgt-armllvm_4.0.0.LTS/lib" -Wl,--diag_wrap=off -Wl,--display_error_number -Wl,--warn_sections -Wl,--xml_link_info="MYCode_v6_MPUMode_linkInfo.xml" -Wl,--rom_model -o "MYCode_v6_MPUMode.out" $(ORDERED_OBJS)
+	"D:/ti/ccs1281/ccs/tools/compiler/ti-cgt-armllvm_4.0.0.LTS/bin/tiarmclang.exe" @"device.opt"  -march=thumbv6m -mcpu=cortex-m0plus -mfloat-abi=soft -mlittle-endian -mthumb -O0 -gdwarf-3 -Wl,-m"MYCode_v7.map" -Wl,-i"D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source" -Wl,-i"D:/CCS/workspace_v12/MYCode_v7" -Wl,-i"D:/CCS/workspace_v12/MYCode_v7/Debug/syscfg" -Wl,-i"D:/ti/ccs1281/ccs/tools/compiler/ti-cgt-armllvm_4.0.0.LTS/lib" -Wl,--diag_wrap=off -Wl,--display_error_number -Wl,--warn_sections -Wl,--xml_link_info="MYCode_v7_linkInfo.xml" -Wl,--rom_model -o "MYCode_v7.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: "$@"'
 	@echo ' '
 

@@ -18,10 +18,16 @@
 
 bool Param_Load(int16_t *kp, int16_t *kd, int16_t *lost_gain,
                 int16_t *base_speed, int16_t *laps, int16_t *pivot_time,
-                uint8_t *mpu_mode, int16_t *pivot_speed);
+                uint8_t *mpu_mode, int16_t *pivot_speed,
+                int16_t *yaw_kp10, int16_t *yaw_rate100,
+                int16_t *mpu_mix, int16_t *yaw_limit,
+                int16_t *yaw_lock_count, int16_t *curve_rate100);
 
 bool Param_Save(int16_t kp, int16_t kd, int16_t lost_gain,
                 int16_t base_speed, int16_t laps, int16_t pivot_time,
-                uint8_t mpu_mode, int16_t pivot_speed);
+                uint8_t mpu_mode, int16_t pivot_speed,
+                int16_t yaw_kp10, int16_t yaw_rate100,
+                int16_t mpu_mix, int16_t yaw_limit,
+                int16_t yaw_lock_count, int16_t curve_rate100);
 
 #endif

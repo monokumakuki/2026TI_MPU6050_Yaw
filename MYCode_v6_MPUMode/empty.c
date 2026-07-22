@@ -39,8 +39,8 @@ typedef enum { MODE_SELECT = 0, MODE_LINE_MENU, MODE_LINE_RUN, MODE_MPU_TEST } S
 static SysMode_t g_mode = MODE_SELECT;
 static uint8_t g_mpu_available = 0U;
 
-/* ==================== 菜单 (9项，MPU状态固定为第一页) ==================== */
-#define MENU_COUNT 9
+/* ==================== 菜单 (15项，MPU状态固定为第一页) ==================== */
+#define MENU_COUNT 15
 #define MENU_MPU       0
 #define MENU_LAPS      1
 #define MENU_START     2
@@ -50,6 +50,12 @@ static uint8_t g_mpu_available = 0U;
 #define MENU_SPEED     6
 #define MENU_PIV_TIME  7
 #define MENU_TURN_SPEED 8
+#define MENU_YAW_KP10   9
+#define MENU_YAW_D100   10
+#define MENU_MPU_MIX    11
+#define MENU_YAW_LIMIT  12
+#define MENU_YAW_LOCK   13
+#define MENU_CURVE_D100 14
 
 static char display_buf[22];
 
@@ -68,6 +74,12 @@ static MenuItem_t menu[MENU_COUNT] = {
     { "Speed",    130, 50,  500, 5  },
     { "PivTime",  100, 10,  200, 5  },
     { "TurnSpd",  200, 80,  250, 5  },
+    { "YawP10",    15,  0,   50,  1  },
+    { "YawD100",   40,  0,   100, 5  },
+    { "MpuMix",    15,  0,   50,  5  },
+    { "YawMax",    60,  10,  200, 10 },
+    { "LockCnt",   60,  10,  200, 10 },
+    { "CurveD100", 10,  0,   50,  5  },
 };
 
 /* ==================== Flash ==================== */
@@ -79,31 +91,63 @@ static void Menu_Save(void)
     Line_SetBaseSpeed(menu[MENU_SPEED].cur);
     Line_SetPivotTime(menu[MENU_PIV_TIME].cur);
     Line_SetTurnSpeed(menu[MENU_TURN_SPEED].cur);
+    Line_SetYawKp10(menu[MENU_YAW_KP10].cur);
+    Line_SetYawRate100(menu[MENU_YAW_D100].cur);
+    Line_SetMpuMix(menu[MENU_MPU_MIX].cur);
+    Line_SetYawLimit(menu[MENU_YAW_LIMIT].cur);
+    Line_SetYawLockCount(menu[MENU_YAW_LOCK].cur);
+    Line_SetCurveRate100(menu[MENU_CURVE_D100].cur);
     Line_SetMpuMode((g_mpu_available && menu[MENU_MPU].cur) ? 1U : 0U);
     Param_Save(menu[MENU_KP].cur, menu[MENU_KD].cur,
                menu[MENU_LOST_GAIN].cur, menu[MENU_SPEED].cur,
                menu[MENU_LAPS].cur, menu[MENU_PIV_TIME].cur,
-               Line_GetMpuMode(), menu[MENU_TURN_SPEED].cur);
+               Line_GetMpuMode(), menu[MENU_TURN_SPEED].cur,
+               menu[MENU_YAW_KP10].cur, menu[MENU_YAW_D100].cur,
+               menu[MENU_MPU_MIX].cur, menu[MENU_YAW_LIMIT].cur,
+               menu[MENU_YAW_LOCK].cur, menu[MENU_CURVE_D100].cur);
 }
 
 static void Menu_Load(void)
 {
-    int16_t kp, kd, lg, sp, laps, pt; uint8_t m; int16_t ps;
-    if (Param_Load(&kp, &kd, &lg, &sp, &laps, &pt, &m, &ps)) {
+    int16_t kp, kd, lg, sp, laps, pt, ps;
+    int16_t ykp, yd, mix, ylim, lock, curve_d;
+    uint8_t m;
+    if (Param_Load(&kp, &kd, &lg, &sp, &laps, &pt, &m, &ps,
+                   &ykp, &yd, &mix, &ylim, &lock, &curve_d)) {
         menu[MENU_KP].cur = kp; menu[MENU_KD].cur = kd;
         menu[MENU_LOST_GAIN].cur = lg; menu[MENU_SPEED].cur = sp;
         menu[MENU_LAPS].cur = laps;
         menu[MENU_PIV_TIME].cur = (pt >= 10 && pt <= 200) ? pt : 100;
         menu[MENU_TURN_SPEED].cur = (ps >= 80 && ps <= 250) ? ps : 200;
+        menu[MENU_YAW_KP10].cur = ykp;
+        menu[MENU_YAW_D100].cur = yd;
+        menu[MENU_MPU_MIX].cur = mix;
+        menu[MENU_YAW_LIMIT].cur = ylim;
+        menu[MENU_YAW_LOCK].cur = lock;
+        menu[MENU_CURVE_D100].cur = curve_d;
         menu[MENU_MPU].cur = (g_mpu_available && m == 1U) ? 1 : 0;
         Line_SetKP(kp); Line_SetKD(kd); Line_SetLostGain(lg);
         Line_SetBaseSpeed(sp); Line_SetPivotTime(menu[MENU_PIV_TIME].cur);
         Line_SetTurnSpeed(menu[MENU_TURN_SPEED].cur);
+        Line_SetYawKp10(ykp); Line_SetYawRate100(yd);
+        Line_SetMpuMix(mix); Line_SetYawLimit(ylim);
+        Line_SetYawLockCount(lock);
+        Line_SetCurveRate100(curve_d);
         Line_SetMpuMode((uint8_t)menu[MENU_MPU].cur);
     } else {
         menu[MENU_MPU].cur = 0;
         menu[MENU_TURN_SPEED].cur = 200;
+        menu[MENU_YAW_KP10].cur = 15;
+        menu[MENU_YAW_D100].cur = 40;
+        menu[MENU_MPU_MIX].cur = 15;
+        menu[MENU_YAW_LIMIT].cur = 60;
+        menu[MENU_YAW_LOCK].cur = 60;
+        menu[MENU_CURVE_D100].cur = 10;
         Line_SetTurnSpeed(menu[MENU_TURN_SPEED].cur);
+        Line_SetYawKp10(15); Line_SetYawRate100(40);
+        Line_SetMpuMix(15); Line_SetYawLimit(60);
+        Line_SetYawLockCount(60);
+        Line_SetCurveRate100(10);
         Line_SetMpuMode(0U);
     }
 }
@@ -120,7 +164,7 @@ static void Show_Menu(uint8_t idx)
             OLED_ShowString(0,20,(u8*)"MPU ON",16);
         else
             OLED_ShowString(0,20,(u8*)"MPU OFF",16);
-        OLED_ShowString(0,40,(u8*)"K2:ON/OFF",12);
+        OLED_ShowString(0,40,(u8*)"K2:SW K3:CAL",12);
     } else if (idx == MENU_START) {
         OLED_ShowString(0,0,(u8*)">> START",16);
         OLED_ShowString(0,16,(u8*)"K1L:Go",16);
@@ -282,7 +326,7 @@ int main(void)
         else if (g_mode == MODE_LINE_MENU) {
             while (g_mode == MODE_LINE_MENU) {
                 uint8_t k1 = KEY1_ScanShortLong(), k2 = KEY2_ScanShortLong(),
-                        k4 = KEY4_ScanShortLong();
+                        k3 = KEY3_ScanShortLong(), k4 = KEY4_ScanShortLong();
                 if (k4 == KEY_EVT_SHORT) { g_mode = MODE_SELECT; Show_Home(); break; }
                 if (k1 == KEY_EVT_SHORT) { idx = (idx+1)%MENU_COUNT; Show_Menu(idx); }
                 else if (k1 == KEY_EVT_LONG) { Menu_Save(); g_mode = MODE_LINE_RUN; break; }
@@ -290,6 +334,27 @@ int main(void)
                     if (k2 == KEY_EVT_SHORT && g_mpu_available) {
                         menu[MENU_MPU].cur = menu[MENU_MPU].cur ? 0 : 1;
                         Menu_Save(); Show_Menu(idx);
+                    } else if (k3 == KEY_EVT_SHORT) {
+                        Car_Stop();
+                        OLED_Clear();
+                        if (!g_mpu_available) {
+                            OLED_ShowString(0,20,(u8*)"MPU FAIL",16);
+                            OLED_Refresh();
+                            delay_ms(800);
+                        } else {
+                            OLED_ShowString(0,0,(u8*)"GYRO CAL",16);
+                            OLED_ShowString(0,22,(u8*)"KEEP CAR STILL",16);
+                            OLED_Refresh();
+                            delay_ms(300);
+                            MPU6050_Calibrate(200);
+                            MPU6050_QuaternionReset();
+                            MPU6050_UpdateTimeReset();
+                            OLED_Clear();
+                            OLED_ShowString(0,20,(u8*)"CAL OK",16);
+                            OLED_Refresh();
+                            delay_ms(600);
+                        }
+                        Show_Menu(idx);
                     }
                 } else if (idx != MENU_START) {
                     if (k2 == KEY_EVT_SHORT) {

@@ -6,12 +6,12 @@
  *      error < 0 表示线偏左，error > 0 表示线偏右，error = 0 居中
  *   2. 位置偏差经 EMA 低通滤波 + 中心死区处理后，送入 PD 控制器
  *      line_pd = KP * filtered_error + KD * (filtered_error - last_error)
- *   3. 【MPU 辅助层 - 航向角 PID（外环）】
- *      a. 直行稳航：居中 20ms 后锁定当前 yaw，用 PID 维持航向
- *         yaw_pid = YAWP * yaw_err + YAWI * ∫yaw_err + YAWD * Δyaw_err
- *         pid_output = 0.6*line_pd + 0.4*yaw_pid   (直行时航向权重高)
+ *   3. 【MPU 辅助层 - 航向角 PD（外环）】
+ *      a. 直行稳航：稳定居中后锁定当前 yaw，小比例叠加平滑航向修正
+ *         yaw_pd = YawP * yaw_err + YawD * gyro_z
+ *         pid_output = line_pd + MpuMix% * filtered(yaw_pd)
  *      b. 转弯阻尼：用陀螺仪 Z 轴角速度做连续阻尼，抑制甩尾
- *         pid_output = line_pd - YAW_GYRO_K * gyro_z  (连续函数，不分档)
+ *         pid_output = line_pd + filtered(gyro_z) * YawD
  *      c. 丢线航向保持：锁住丢线瞬间 yaw，用同一套 yaw PID 维持航向
  *         叠加小幅摆动搜索（sine 波），帮车找回黑线
  *   4. PD 输出作为左右轮速度差，实现连续平滑的差速转弯
@@ -28,12 +28,7 @@
  *   g_line_lost_gain  - 丢线修正增益（非MPU模式），越大丢线后找线越猛
  *   g_line_base_speed - 基础直行速度，左右轮速度的基准值
  *
- * MPU 固定参数（compile-time，参考网上主流值）：
- *   YAW_KP       - 航向角 P 增益，1°误差→此值速度差 (推荐 3.0~6.0)
- *   YAW_KI       - 航向角 I 增益，消除电机不对称造成的缓慢偏移
- *   YAW_KD       - 航向角 D 增益，抑制航向修正过冲
- *   YAW_GYRO_K   - 转弯陀螺阻尼系数，越大转弯越稳但可能迟钝
- *   YAW_LOCK_MS  - 居中多少毫秒后锁定航向 (推荐 15~30)
+ * MPU菜单参数：YawP10、YawD100、MpuMix、YawMax、LockCnt。
  *
  * 一般为固定参数：
  *   LINE_DEAD_ZONE    - 中心死区，误差绝对值 <= 此值时视为居中不修正
@@ -68,6 +63,16 @@ static int16_t g_line_turn_speed = 200;
 
 /* MPU6050 辅助模式：1=启用, 0=关闭 */
 static uint8_t g_mpu_mode = 0;
+
+/* MPU辅助参数使用整数保存，避免Flash直接存浮点数。
+ * YawP10=15 表示1.5，YawD100=40表示0.40。 */
+static int16_t g_yaw_kp10 = 15;
+static int16_t g_yaw_rate100 = 40;
+static int16_t g_mpu_mix = 15;
+static int16_t g_yaw_limit = 60;
+static int16_t g_yaw_lock_count = 60;
+/* 普通弯道角速度阻尼独立于直道 YawD100，避免高速入弯时反向制动过强。 */
+static int16_t g_curve_rate100 = 10;
 
 /* ==================== 固定参数 ==================== */
 
@@ -125,31 +130,19 @@ static uint8_t  pivot_candidate_cnt = 0; /* 候选方向连续出现次数 */
 static uint8_t  pivot_departed = 0;      /* 已离开触发 pivot 的旧线路外侧 */
 static uint8_t  pivot_center_cnt = 0;    /* 中心两路稳定重捕获计数 */
 
-/* ==================== MPU 航向角 PID 参数（参考网上主流值） ==================== */
+/* ==================== MPU 航向辅助固定滤波参数 ==================== */
 
-/* 航向角 P 增益：1°误差 = YAWP 的速度差。参考范围 3.0~6.0，直道取低、弯道取高 */
-#define YAW_KP       3.0f
+/* 小角度误差不修正，避免MPU零偏和机械间隙引起左右快速反打。 */
+#define YAW_ERROR_DEADBAND       0.8f
 
-/* 直接用实测角速度作为阻尼（测量微分），不依赖不稳定的循环次数差分。 */
-#define YAW_RATE_K   0.25f
-
-/* 转弯陀螺阻尼系数：gyro_z(°/s) 直接衰减 PD 输出，连续函数不分档
- * 参考范围 0.2~0.6，值越大转弯越稳但可能迟钝 */
-#define YAW_GYRO_K   0.35f
-
-/* 居中多少毫秒后锁定航向。参考范围 15~30ms */
-#define YAW_LOCK_MS  20
+/* 角速度和航向输出均做一阶低通；数值越小越平滑。 */
+#define YAW_RATE_FILTER_ALPHA    0.20f
+#define YAW_OUTPUT_FILTER_ALPHA  0.15f
 
 /* 丢线后搜索摆幅（速度差），小幅左右摆动帮车找回黑线 */
 #define LOST_SEARCH_AMPLITUDE  15
 
 /* ==================== MPU 航向角 PID 内部状态 ==================== */
-
-/* 航向角 PID 积分项（I 累积） */
-static float   yaw_i = 0;
-
-/* 航向角 PID 上一次误差（D 用） */
-static float   yaw_last_err = 0;
 
 /* 锁定的目标航向角 */
 static float   yaw_target = 0;
@@ -157,11 +150,17 @@ static float   yaw_target = 0;
 /* 航向锁定标志：1=已锁定，丢线/直行时生效 */
 static uint8_t  yaw_locked = 0;
 
-/* 居中连续计数：超过 YAW_LOCK_MS 后锁定航向 */
+/* 居中连续计数：超过菜单 LockCnt 后锁定航向 */
 static uint8_t  center_cnt = 0;
 
 /* 丢线后搜索相位（正弦波相位累加，产生小幅摆动） */
 static uint16_t lost_search_phase = 0;
+
+/* 低通后的角速度和辅助输出，抑制高频左右摆动。 */
+static float yaw_rate_filtered = 0.0f;
+static float yaw_output_filtered = 0.0f;
+
+static void yaw_control_reset(void);
 
 /* 传感器权重表：8路传感器从左到右，负值偏左，正值偏右，均匀分布 */
 static const int8_t sensor_weights[LINE_SENSOR_COUNT] = {-4, -3, -2, -1, 1, 2, 3, 4};
@@ -259,8 +258,7 @@ void Line_Tracking_Init(void)
     pivot_center_cnt = 0;
     yaw_locked = 0;
     center_cnt = 0;
-    yaw_i = 0.0f;
-    yaw_last_err = 0.0f;
+    yaw_control_reset();
 }
 
 /******************************************************************
@@ -419,6 +417,13 @@ static float yaw_error_wrap(float target, float current)
     return err;
 }
 
+/* 释放航向锁或模式切换时清空滤波状态，防止旧输出突然带入下一段线路。 */
+static void yaw_control_reset(void)
+{
+    yaw_rate_filtered = 0.0f;
+    yaw_output_filtered = 0.0f;
+}
+
 /******************************************************************
  * 函 数 名 称：yaw_pid_compute
  * 函 数 说 明：计算航向角 PD 输出（角度 P + 实测角速度阻尼）
@@ -431,16 +436,26 @@ static float yaw_error_wrap(float target, float current)
  ******************************************************************/
 static int16_t yaw_pid_compute(float yaw_err, float gyro_z)
 {
-    /* 实测为逆时针 yaw/gyro_z 为正，而 pid_output 正值驱动车体顺时针修正。
-     * 因此使用 current-target，并让角速度项与误差项同号形成阻尼。 */
-    float total = YAW_KP * yaw_err + YAW_RATE_K * gyro_z;
-    yaw_i = 0.0f;
-    yaw_last_err = yaw_err;
+    float kp = (float)g_yaw_kp10 * 0.1f;
+    float kd = (float)g_yaw_rate100 * 0.01f;
+    float limit = (float)g_yaw_limit;
 
-    /* 输出限幅 */
-    if (total > 300.0f)  total = 300.0f;
-    if (total < -300.0f) total = -300.0f;
-    return (int16_t)total;
+    if (yaw_err > -YAW_ERROR_DEADBAND && yaw_err < YAW_ERROR_DEADBAND)
+        yaw_err = 0.0f;
+
+    /* 先滤除MPU角速度噪声，再作为测量微分提供阻尼。 */
+    yaw_rate_filtered += YAW_RATE_FILTER_ALPHA * (gyro_z - yaw_rate_filtered);
+
+    /* 逆时针yaw为正、pid_output正值对应顺时针修正，故两项均使用正号。 */
+    float total = kp * yaw_err + kd * yaw_rate_filtered;
+    if (total > limit) total = limit;
+    if (total < -limit) total = -limit;
+
+    /* 对最终辅助量再低通，避免电机每一拍立即反向修正。 */
+    yaw_output_filtered += YAW_OUTPUT_FILTER_ALPHA * (total - yaw_output_filtered);
+    if (yaw_output_filtered > -0.5f && yaw_output_filtered < 0.5f)
+        return 0;
+    return (int16_t)yaw_output_filtered;
 }
 
 /******************************************************************
@@ -472,7 +487,8 @@ void Line_Run(void)
     float mpu_yaw = 0;
     if (g_mpu_mode)
     {
-        MPU6050_QuaternionUpdate();
+        /* 巡线只需要gyro_z和相对yaw，使用快速版减少I2C阻塞和控制周期抖动。 */
+        MPU6050_QuaternionUpdateFast();
         MPU6050_Data_t mpu_data;
         MPU6050_GetLatestData(&mpu_data);
         mpu_gyro_z = mpu_data.gyro_z;
@@ -544,8 +560,7 @@ void Line_Run(void)
                 /* pivot 期间不使用旧的直行航向锁，防止 MPU 辅助与转弯打架。 */
                 yaw_locked = 0;
                 center_cnt = 0;
-                yaw_i = 0;
-                yaw_last_err = 0;
+                yaw_control_reset();
             }
         }
         else
@@ -630,8 +645,7 @@ void Line_Run(void)
                 /* 丢线第一拍：锁定当前 yaw + 重置航向 PID 状态 */
                 yaw_target = mpu_yaw;
                 yaw_locked = 1;
-                yaw_i = 0;
-                yaw_last_err = 0;
+                yaw_control_reset();
                 lost_search_phase = 0;
             }
 
@@ -705,23 +719,22 @@ void Line_Run(void)
                 /*  参考：电赛最常见的"锁定 yaw，PID 维持直行"方案              */
                 /*  进入直道时锁一次 yaw，持续到转弯才释放                      */
                 /* ======================================================== */
-                if (!yaw_locked && center_cnt < YAW_LOCK_MS)
+                if (!yaw_locked && center_cnt < (uint8_t)g_yaw_lock_count)
                     center_cnt++;
-                if (!yaw_locked && center_cnt >= YAW_LOCK_MS)
+                if (!yaw_locked && center_cnt >= (uint8_t)g_yaw_lock_count)
                 {
                     /* 首次达到阈值：锁定当前航向 + 重置 PID 状态 */
                     yaw_target = mpu_yaw;
                     yaw_locked = 1;
-                    yaw_i = 0;
-                    yaw_last_err = 0;
+                    yaw_control_reset();
                 }
 
                 if (yaw_locked)
                 {
                     float yaw_err = yaw_error_wrap(yaw_target, mpu_yaw);
                     int16_t yaw_out = yaw_pid_compute(yaw_err, mpu_gyro_z);
-                    /* 灰度始终为主控，MPU 只占 30%，避免六轴 yaw 漂移抢控制权。 */
-                    pid_output = (line_pd * 7 + yaw_out * 3) / 10;
+                    /* 不再削弱灰度PD，只叠加有限比例的平滑航向辅助。 */
+                    pid_output = line_pd + (yaw_out * g_mpu_mix) / 100;
                 }
                 else
                 {
@@ -735,20 +748,33 @@ void Line_Run(void)
                 /*  参考：用 gyro_z 做连续阻尼，替代原来的分档硬切换            */
                 /* ======================================================== */
                 center_cnt = 0;
+                if (yaw_locked)
+                    yaw_control_reset();
                 yaw_locked = 0;
-                yaw_i = 0.0f;
-                yaw_last_err = 0.0f;
 
                 /* 连续陀螺阻尼：实测逆时针 gyro_z 为正、顺时针为负。
                  * pid_output 正值对应顺时针，因此相加会削弱正在发生的转向，抑制甩尾。
-                 * 用 |gyro_z|/15 做归一化因子：15°/s 以上全额阻尼，以下逐步减弱 */
-                float abs_gyro = (mpu_gyro_z > 0) ? mpu_gyro_z : -mpu_gyro_z;
-                float damping_scale = abs_gyro / 15.0f;
-                if (damping_scale > 1.0f) damping_scale = 1.0f;
-                int16_t gyro_damp = (int16_t)(mpu_gyro_z * YAW_GYRO_K * damping_scale);
+                 * CurveD100 决定 gyro_z 的缩放比例，最终仍受 YawMax 一半的限幅保护。 */
+                if (block_opposite > 0U)
+                {
+                    /* pivot 刚退出时仍有较大残余角速度，短暂只信任灰度重捕获，
+                     * 防止陀螺阻尼把车大幅反拉回旧方向。 */
+                    yaw_control_reset();
+                    pid_output = line_pd;
+                }
+                else
+                {
+                    float curve_kd = (float)g_curve_rate100 * 0.01f;
+                    float curve_limit = (float)g_yaw_limit * 0.5f;
+                    yaw_rate_filtered += YAW_RATE_FILTER_ALPHA *
+                                         (mpu_gyro_z - yaw_rate_filtered);
+                    float gyro_damp_f = yaw_rate_filtered * curve_kd;
+                    if (gyro_damp_f > curve_limit) gyro_damp_f = curve_limit;
+                    if (gyro_damp_f < -curve_limit) gyro_damp_f = -curve_limit;
 
-                /* 灰度 PD 为主，陀螺项仅用于动态阻尼。 */
-                pid_output = line_pd + gyro_damp;
+                    /* 灰度 PD 为主，独立弯道阻尼只抑制普通弯道甩尾。 */
+                    pid_output = line_pd + (int16_t)gyro_damp_f;
+                }
             }
         }
         else
@@ -792,6 +818,48 @@ void    Line_SetTurnSpeed(int16_t v)
     if (v > 250) v = 250;
     g_line_turn_speed = v;
 }
+int16_t Line_GetYawKp10(void)          { return g_yaw_kp10; }
+void    Line_SetYawKp10(int16_t v)
+{
+    if (v < 0) v = 0;
+    if (v > 50) v = 50;
+    g_yaw_kp10 = v;
+}
+int16_t Line_GetYawRate100(void)       { return g_yaw_rate100; }
+void    Line_SetYawRate100(int16_t v)
+{
+    if (v < 0) v = 0;
+    if (v > 100) v = 100;
+    g_yaw_rate100 = v;
+}
+int16_t Line_GetMpuMix(void)           { return g_mpu_mix; }
+void    Line_SetMpuMix(int16_t v)
+{
+    if (v < 0) v = 0;
+    if (v > 50) v = 50;
+    g_mpu_mix = v;
+}
+int16_t Line_GetYawLimit(void)         { return g_yaw_limit; }
+void    Line_SetYawLimit(int16_t v)
+{
+    if (v < 10) v = 10;
+    if (v > 200) v = 200;
+    g_yaw_limit = v;
+}
+int16_t Line_GetYawLockCount(void)     { return g_yaw_lock_count; }
+void    Line_SetYawLockCount(int16_t v)
+{
+    if (v < 10) v = 10;
+    if (v > 200) v = 200;
+    g_yaw_lock_count = v;
+}
+int16_t Line_GetCurveRate100(void)     { return g_curve_rate100; }
+void    Line_SetCurveRate100(int16_t v)
+{
+    if (v < 0) v = 0;
+    if (v > 50) v = 50;
+    g_curve_rate100 = v;
+}
 uint8_t Line_GetMpuMode(void)         { return g_mpu_mode; }
 void    Line_SetMpuMode(uint8_t v)
 {
@@ -801,8 +869,7 @@ void    Line_SetMpuMode(uint8_t v)
         g_mpu_mode = new_mode;
         yaw_locked = 0;
         center_cnt = 0;
-        yaw_i = 0.0f;
-        yaw_last_err = 0.0f;
+        yaw_control_reset();
         if (g_mpu_mode)
         {
             /* 每次开启辅助都从当前车体方向建立新的相对 yaw，避免沿用菜单等待期间的漂移。 */

@@ -1,8 +1,8 @@
 # FIXED
 
 BSP/src/location.o: ../BSP/src/location.c \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/location.h \
- D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/mpu6050.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/location.h \
+ D:/CCS/workspace_v12/MYCode_v7/BSP/inc/mpu6050.h \
  ti_msp_dl_config.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/msp/msp.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/DeviceFamily.h \
@@ -86,8 +86,8 @@ BSP/src/location.o: ../BSP/src/location.c \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/dl_wwdt.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_interrupt.h \
  D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/driverlib/m0p/dl_systick.h
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/location.h:
-D:/CCS/workspace_v12/MYCode_v6_MPUMode/BSP/inc/mpu6050.h:
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/location.h:
+D:/CCS/workspace_v12/MYCode_v7/BSP/inc/mpu6050.h:
 ti_msp_dl_config.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/msp/msp.h:
 D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/ti/devices/DeviceFamily.h:

@@ -119,6 +119,18 @@ int16_t Line_GetPivotTime(void);
 void    Line_SetPivotTime(int16_t v);
 int16_t Line_GetTurnSpeed(void);
 void    Line_SetTurnSpeed(int16_t v);
+int16_t Line_GetYawKp10(void);
+void    Line_SetYawKp10(int16_t v);
+int16_t Line_GetYawRate100(void);
+void    Line_SetYawRate100(int16_t v);
+int16_t Line_GetMpuMix(void);
+void    Line_SetMpuMix(int16_t v);
+int16_t Line_GetYawLimit(void);
+void    Line_SetYawLimit(int16_t v);
+int16_t Line_GetYawLockCount(void);
+void    Line_SetYawLockCount(int16_t v);
+int16_t Line_GetCurveRate100(void);
+void    Line_SetCurveRate100(int16_t v);
 uint8_t Line_GetMpuMode(void);
 void    Line_SetMpuMode(uint8_t v);
 

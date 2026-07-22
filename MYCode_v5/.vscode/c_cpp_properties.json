@@ -1,0 +1,42 @@
+{
+    "configurations": [
+        {
+            "name": "MSPM0G3507_Config",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/Debug",
+                "${workspaceFolder}/Board",
+                "${workspaceFolder}/BSP",
+                "${workspaceFolder}/BSP/inc",
+                "D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source",
+                "D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source/third_party/CMSIS/Core/Include",
+                "D:/ti/ccs1281/ccs/tools/compiler/ti-cgt-armllvm_4.0.0.LTS/include"
+            ],
+            "defines": [
+                "__MSPM0G3507__",
+                "__USE_SYSCONFIG__"
+            ],
+            "compilerPath": "D:/ti/ccs1281/ccs/tools/compiler/ti-cgt-armllvm_4.0.0.LTS/bin/tiarmclang.exe",
+            "compilerArgs": [
+                "-mcpu=cortex-m0plus",
+                "-march=thumbv6m",
+                "-mthumb",
+                "-mfloat-abi=soft"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "windows-clang-arm",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${workspaceFolder}/Debug",
+                    "${workspaceFolder}/Board",
+                    "${workspaceFolder}/BSP/inc",
+                    "D:/ti/CCS_SDK/mspm0_sdk_2_10_00_04/source"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        }
+    ],
+    "version": 4
+}
